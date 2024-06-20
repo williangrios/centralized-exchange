@@ -14,6 +14,7 @@ function News() {
       link: 'link',
     },
   ]
+
   return (
     <div className="flex flex-col gap-2 w-full">
       {news.map((news) => {

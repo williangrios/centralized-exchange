@@ -1,11 +1,61 @@
-import React from 'react'
+'use client'
+import React, { useEffect, useMemo, useState } from 'react'
 import btcLogo from '../../public/assets/btc.png'
 import ethLogo from '../../public/assets/eth.png'
 import solLogo from '../../public/assets/sol.png'
 import Image from 'next/image'
 import { BsThreeDotsVertical } from 'react-icons/bs'
+import { Erc20, ThirdwebSDK } from '@thirdweb-dev/sdk'
+import { optimismSepolia } from 'thirdweb/chains'
+import { sdk } from '@/lib/thirdWeb'
 
-function Portfolio() {
+interface PortfolioProps {
+  sanityTokens: any[]
+  thirdwebTokens: any[]
+  walletAddress: string
+}
+
+function Portfolio({
+  sanityTokens,
+  thirdwebTokens,
+  walletAddress,
+}: PortfolioProps) {
+  const [totalBalance, setTotalBalance] = useState(0)
+
+  const formattedBalance = useMemo(() => {
+    const value = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(totalBalance)
+    return value === '$0.00' ? 'loading...' : value
+  }, [totalBalance])
+
+  const tokenToUSD = useMemo(() => {
+    const result = {}
+    for (const token of sanityTokens) {
+      // @ts-expect-error
+      result[token.contractAddress] = Number(token.usdPrice)
+    }
+    return result
+  }, [sanityTokens])
+
+  useEffect(() => {
+    const calculateTotalBalance = async () => {
+      const tempTotalBalance = await Promise.all(
+        thirdwebTokens.map(async (token) => {
+          const contract = await sdk.getContract(token.address)
+          const balance = await contract.erc20.balanceOf(walletAddress)
+          // @ts-expect-error
+          return Number(balance.displayValue) * tokenToUSD[token.address]
+        })
+      )
+      setTotalBalance(tempTotalBalance.reduce((acc, curr) => acc + curr, 0))
+    }
+    calculateTotalBalance()
+  }, [thirdwebTokens, tokenToUSD, walletAddress])
+
   const coins = [
     {
       name: 'Bitcoin',
@@ -40,7 +90,7 @@ function Portfolio() {
   ]
   return (
     <div className="border border-gray-200 rounded-lg p-3">
-      <h2>Your assets</h2>
+      <h2 className="mb-2">Your assets - {formattedBalance}</h2>
       <table className="rounded-3xl overflow-hidden w-full">
         <thead className="bg-secondary-color-medium font-bold text-sm w-full">
           <tr className="w-full text-start">
